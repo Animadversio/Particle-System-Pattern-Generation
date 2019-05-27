@@ -33,12 +33,13 @@ scene = image(arena, show_axis = false, colormap=ColorSchemes.gray.colors, color
 # heatmap(arena, colormap=:gray, colorrange=[0,1])
 # tic
 TIMESTEP = 100;
-record(scene, "test.gif") do io
+record(scene, "test.mp4") do io
     for t = 1:TIMESTEP
         global pos_arr, vel_arr, theta_arr, arena, sens_arr, scene
-        scene = image(arena, show_axis = false, colormap=ColorSchemes.gray.colors, colorrange=[0,1])
+        # scene = image(arena, show_axis = false, colormap=ColorSchemes.gray.colors, colorrange=[0,1])
+        image!(scene, arena, show_axis = false, colormap=ColorSchemes.gray.colors, colorrange=[0,1])
         recordframe!(io) # record a new frame
-        #image!(scene, arena, show_axis = false, colormap=ColorSchemes.gray.colors, colorrange=[0,1])
+        #
         pos_arr = mod.((pos_arr + vel_arr) .- 1, WIDTH) .+ 1;
         dir_id_arr = mod.(floor.(Int32, theta_arr / DEDECRANT), DEDEC_NUM) .+ 1;
         for part_i = 1: PARTICLE_N
