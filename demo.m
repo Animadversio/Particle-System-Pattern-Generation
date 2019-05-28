@@ -1,4 +1,4 @@
-WIDTH = 1500;
+WIDTH = 1000;
 arena = zeros([WIDTH,WIDTH],'single');
 gpu_arena = gpuArray(arena);
 %%
@@ -11,11 +11,14 @@ xticks([])
 yticks([])
 axis equal tight
 %%
-do_rec = 0;
+do_rec = 1;
 if do_rec
     F = {};
 end
 %%
+arena = zeros([WIDTH,WIDTH],'single');
+gpu_arena = arena;
+
 DECAY_rate = 0.92;
 DIFF_SENSITIVITY = 0.2;
 TURN_ANGLE = 0.8;
@@ -27,36 +30,38 @@ DIFF_KER(2,2) = DIFF_KER(2,2) +1;
 % OCTAANG_arr = [ [1, 0]; [1, 1]; [0, 1]; [-1, 1]; [-1, 0]; [-1, -1]; [0, -1]; [1, -1] ];
 DEDEC_NUM = 12;
 DEDECRANT = pi/6;
-DEDECANG_arr = 3 * [ [2, 0]; [2, 1]; [1, 2]; [0, 2]; [-1, 2]; [-2, 1]; [-2, 0]; [-2, -1]; [-1, -2]; 
+% Distance of sensation
+DEDECANG_arr = 2 * [ [2, 0]; [2, 1]; [1, 2]; [0, 2]; [-1, 2]; [-2, 1]; [-2, 0]; [-2, -1]; [-1, -2]; 
                                     [0, -2]; [1, -2]; [2, -1]; ];
 assert(DEDEC_NUM==size(DEDECANG_arr, 1))
-PARTICLE_N = 8000;
-TIMESTEP = 500;
 
-arena = zeros([WIDTH,WIDTH],'single');
-gpu_arena = arena;
-% pos_arr = 450 + (100 * rand([PARTICLE_N, 2], 'single'));%
+PARTICLE_N = 100000;
+TIMESTEP = 1000;
+
+pos_arr = WIDTH / 2 + -500 + (1000 * rand([PARTICLE_N, 2], 'single'));%
 theta_arr = (2*pi * rand([PARTICLE_N,1], 'single'));
 % pos_arr = WIDTH / 2 - 10 * [cos(theta_arr), sin(theta_arr)];
-pos_arr = WIDTH / 2 + [- 40 * [cos(theta_arr(1:2000)), sin(theta_arr(1:2000))]; 
-                                        - 500 * [cos(theta_arr(2001:5000)), sin(theta_arr(2001:5000))];
-                                         - 200 * [cos(theta_arr(5001:end)), sin(theta_arr(5001:end))]];
-vel_scale_arr = (2.8 + 0.4* randn([PARTICLE_N, 1], 'single'));
+% pos_arr = WIDTH / 2 + [- 400 * [cos(theta_arr(1:5000)), sin(theta_arr(1:5000))]; 
+%                +100 * [sin(theta_arr(5001:10000)), cos(theta_arr(5001:10000))];
+%               - 200 * [cos(theta_arr(10001:15000)), sin(theta_arr(10001:15000))];
+%               [-50 + (100 * rand([5000, 2], 'single'))]];
+              %- 300 * [cos(theta_arr(15001:20000)), sin(theta_arr(15001:20000))]];
+vel_scale_arr = (3.8 + 0.4* randn([PARTICLE_N, 1], 'single'));
 vel_arr = vel_scale_arr.*[cos(theta_arr), sin(theta_arr)];
 sens_arr = (zeros([PARTICLE_N, 3]));
-
+wrapN = @(x, N) (1 + mod(x-1, N));
 tic
 for t = 1:TIMESTEP
     figure(1)
     h = imshow(gpu_arena,[0,1]);
-    pos_arr = mod((pos_arr + vel_arr) - 1, WIDTH) + 1;
+    pos_arr = wrapN(wrapN(pos_arr + vel_arr, WIDTH), WIDTH);%mod((pos_arr + vel_arr) - 1, WIDTH) + 1;
     dir_id_arr = mod(floor(theta_arr / DEDECRANT), DEDEC_NUM) + 1; 
     for part_i = 1: PARTICLE_N
         loc = [floor(pos_arr(part_i,1)), floor(pos_arr(part_i,2))];
-        gpu_arena(loc(1), loc(2)) = gpu_arena(loc(1), loc(2)) + 0.9;
-        locM = mod(loc + DEDECANG_arr(dir_id_arr(part_i) , :) -1, WIDTH) + 1;
-        locL = mod(loc + DEDECANG_arr(mod(dir_id_arr(part_i) - 2, DEDEC_NUM)+1, :) -1, WIDTH) + 1;
-        locR = mod(loc + DEDECANG_arr(mod(dir_id_arr(part_i)     , DEDEC_NUM)+1, :) -1, WIDTH) + 1;
+        gpu_arena(loc(1), loc(2)) = gpu_arena(loc(1), loc(2)) + 0.5;
+        locM = wrapN(loc + DEDECANG_arr(dir_id_arr(part_i) , :), WIDTH);
+        locL = wrapN(loc + DEDECANG_arr(wrapN(dir_id_arr(part_i) - 1, DEDEC_NUM), :), WIDTH);
+        locR = wrapN(loc + DEDECANG_arr(wrapN(dir_id_arr(part_i) + 1, DEDEC_NUM), :), WIDTH);
         Lsens = gpu_arena(locL(1), locL(2));
         Msens = gpu_arena(locM(1), locM(2));
         Rsens = gpu_arena(locR(1), locR(2));
@@ -67,7 +72,7 @@ for t = 1:TIMESTEP
         elseif Lsens > Rsens && abs(Rsens - Lsens) > DIFF_SENSITIVITY
             theta_arr(part_i) = theta_arr(part_i) - DEDECRANT * TURN_ANGLE  ;%* rand(1) ;
         else
-            theta_arr(part_i) = theta_arr(part_i) + DEDECRANT*(2*rand(1) - 1) * TURN_ANGLE;
+            theta_arr(part_i) = theta_arr(part_i) + DEDECRANT* TURN_ANGLE  *(2*rand(1) - 1) ;  %* (2 * randi(2) -3 ) 
         end
         sens_arr(part_i, :) = [Lsens, Msens, Rsens];
     end
@@ -84,8 +89,8 @@ DT = toc;
 disp("Total Frame rate (Hz)")
 disp(TIMESTEP/DT)
 
-%%
-filename = 'radiation_unit_circ';
+%
+filename = 'unif_pattern_gen_0.1M';%'radiation_unit_circ';
 for n = 1:length(F)
     frame = F{n};
     im = frame2im(frame);
@@ -96,7 +101,7 @@ for n = 1:length(F)
       imwrite(imind,cm,[filename, '.gif'],'gif','WriteMode','append');
     end
 end
-%% Write
+% Write
 writerObj = VideoWriter([filename,'.avi']);
 writerObj.FrameRate = 10;
  % set the seconds per image
