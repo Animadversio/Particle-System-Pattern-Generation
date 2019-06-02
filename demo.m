@@ -1,4 +1,4 @@
-WIDTH = 1000;
+WIDTH = 800;
 arena = zeros([WIDTH,WIDTH],'single');
 gpu_arena = gpuArray(arena);
 %%
@@ -12,19 +12,14 @@ yticks([])
 axis equal tight
 %%
 do_rec = 1;
-if do_rec
-    F = {};
-end
-%%
-arena = zeros([WIDTH,WIDTH],'single');
-gpu_arena = arena;
 
+%%
 DECAY_rate = 0.92;
 DIFF_SENSITIVITY = 0.2;
-TURN_ANGLE = 0.8;
+TURN_ANGLE = 1;
 DIFF_KER = 0.05* [[0.5, 1.0, 0.5];
-                           [1.0, -6., 1.0];
-                           [0.5, 1.0, 0.5]]; 
+                  [1.0, -6., 1.0];
+                  [0.5, 1.0, 0.5]]; 
 DIFF_KER(2,2) = DIFF_KER(2,2) +1;
 % OCTARANT = pi/4;
 % OCTAANG_arr = [ [1, 0]; [1, 1]; [0, 1]; [-1, 1]; [-1, 0]; [-1, -1]; [0, -1]; [1, -1] ];
@@ -36,17 +31,23 @@ DEDECANG_arr = 2 * [ [2, 0]; [2, 1]; [1, 2]; [0, 2]; [-1, 2]; [-2, 1]; [-2, 0]; 
 assert(DEDEC_NUM==size(DEDECANG_arr, 1))
 
 PARTICLE_N = 100000;
-TIMESTEP = 1000;
-
-pos_arr = WIDTH / 2 + -500 + (1000 * rand([PARTICLE_N, 2], 'single'));%
+TIMESTEP = 2000;
+for trial_i=1:5
+arena = zeros([WIDTH,WIDTH],'single');
+gpu_arena = arena;
+if do_rec
+    F = {};
+end
+% pos_arr = WIDTH / 2 + -500 + (1000 * rand([PARTICLE_N, 2], 'single'));%
 theta_arr = (2*pi * rand([PARTICLE_N,1], 'single'));
 % pos_arr = WIDTH / 2 - 10 * [cos(theta_arr), sin(theta_arr)];
-% pos_arr = WIDTH / 2 + [- 400 * [cos(theta_arr(1:5000)), sin(theta_arr(1:5000))]; 
-%                +100 * [sin(theta_arr(5001:10000)), cos(theta_arr(5001:10000))];
-%               - 200 * [cos(theta_arr(10001:15000)), sin(theta_arr(10001:15000))];
-%               [-50 + (100 * rand([5000, 2], 'single'))]];
+pos_arr = WIDTH / 2 + [- 400 * [cos(theta_arr(1:10000)), sin(theta_arr(1:10000))]; 
+              + 150 * [cos(theta_arr(10001:20000)), sin(theta_arr(10001:20000))];
+              - 250 * [cos(theta_arr(20001:30000)), sin(theta_arr(20001:30000))];
+              + 325 * [cos(theta_arr(30001:40000)), sin(theta_arr(30001:40000))];
+              [-400 + (800 * rand([60000, 2], 'single'))]];
               %- 300 * [cos(theta_arr(15001:20000)), sin(theta_arr(15001:20000))]];
-vel_scale_arr = (3.8 + 0.4* randn([PARTICLE_N, 1], 'single'));
+vel_scale_arr = (4.8 + 0.4* randn([PARTICLE_N, 1], 'single'));
 vel_arr = vel_scale_arr.*[cos(theta_arr), sin(theta_arr)];
 sens_arr = (zeros([PARTICLE_N, 3]));
 wrapN = @(x, N) (1 + mod(x-1, N));
@@ -70,7 +71,7 @@ for t = 1:TIMESTEP
         elseif Rsens > Lsens && abs(Rsens - Lsens) > DIFF_SENSITIVITY
             theta_arr(part_i) = theta_arr(part_i) + DEDECRANT * TURN_ANGLE ;%* rand(1) ;
         elseif Lsens > Rsens && abs(Rsens - Lsens) > DIFF_SENSITIVITY
-            theta_arr(part_i) = theta_arr(part_i) - DEDECRANT * TURN_ANGLE  ;%* rand(1) ;
+            theta_arr(part_i) = theta_arr(part_i) - DEDECRANT * TURN_ANGLE ;%* rand(1) ;
         else
             theta_arr(part_i) = theta_arr(part_i) + DEDECRANT* TURN_ANGLE  *(2*rand(1) - 1) ;  %* (2 * randi(2) -3 ) 
         end
@@ -88,9 +89,23 @@ end
 DT = toc;
 disp("Total Frame rate (Hz)")
 disp(TIMESTEP/DT)
-
 %
-filename = 'unif_pattern_gen_0.1M';%'radiation_unit_circ';
+filename = ['multi_rad_w_bg_010M', num2str(trial_i)];%'unif_pattern_gen_0.1M';%'radiation_unit_circ';
+writerObj = VideoWriter([filename,'.avi']);
+writerObj.FrameRate = 10;
+% set the seconds per image
+% open the video writer
+open(writerObj);
+% write the frames to the video
+for i=1:length(F)
+    % convert the image to a frame
+    frame = F{i} ;    
+    writeVideo(writerObj, frame);
+end
+% close the writer object
+close(writerObj);
+end
+%%
 for n = 1:length(F)
     frame = F{n};
     im = frame2im(frame);
@@ -102,17 +117,3 @@ for n = 1:length(F)
     end
 end
 % Write
-writerObj = VideoWriter([filename,'.avi']);
-writerObj.FrameRate = 10;
- % set the seconds per image
-% open the video writer
-open(writerObj);
-% write the frames to the video
-for i=1:length(F)
-    % convert the image to a frame
-    frame = F{i} ;    
-    writeVideo(writerObj, frame);
-end
-% close the writer object
-close(writerObj);
-
